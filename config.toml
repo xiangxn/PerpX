@@ -1,0 +1,12 @@
+[database]
+host = "127.0.0.1"
+port = 5432
+user = "root"
+password = "secret"
+
+[server]
+worker_count = 4
+
+[proxy]
+# 可选，留空或不写表示直连
+addr = "127.0.0.1:1080"
