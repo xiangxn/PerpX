@@ -5,6 +5,22 @@ pub struct Config {
     pub database: DatabaseConfig,
     pub server: ServerConfig,
     pub proxy: Option<ProxyConfig>,
+    #[serde(default)]
+    pub logging: Logging,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Logging {
+    #[serde(default)]
+    pub level: String,
+}
+
+impl Default for Logging {
+    fn default() -> Self {
+        Self {
+            level: "debug".to_string(),
+        }
+    }
 }
 
 #[derive(Deserialize, Clone)]
@@ -18,6 +34,7 @@ pub struct DatabaseConfig {
 #[derive(Deserialize, Clone)]
 pub struct ServerConfig {
     pub worker_count: u16,
+    pub max_kline_count: u32,
 }
 
 #[derive(Deserialize, Clone)]
