@@ -12,7 +12,7 @@ pub async fn process_volatility_spike(
 ) {
     debug!("{:?} {:?} {}", symbol, interval, klines.len());
 
-    if klines.len() < 4 {
+    if klines.len() < 4 {   // 最小4柱才计算逻辑
         return;
     }
     let history = &klines[klines.len() - 4..klines.len() - 1];
