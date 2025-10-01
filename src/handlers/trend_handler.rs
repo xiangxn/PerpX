@@ -1,7 +1,8 @@
-use serde_json::{json, to_string_pretty};
-use tracing::debug;
-
+use crate::redis::RedisQueue;
 use crate::types::{Event, EventType, Interval, Kline};
+use serde_json::{json, to_string_pretty};
+use std::sync::Arc;
+use tracing::{debug, error};
 
 // 异常波动
 pub async fn process_volatility_spike(
@@ -9,10 +10,12 @@ pub async fn process_volatility_spike(
     interval: Interval,
     klines: Vec<Kline>,
     turnover: String,
+    queue: Arc<RedisQueue>,
 ) {
     debug!("{:?} {:?} {}", symbol, interval, klines.len());
 
-    if klines.len() < 4 {   // 最小4柱才计算逻辑
+    if klines.len() < 4 {
+        // 最小4柱才计算逻辑
         return;
     }
     let history = &klines[klines.len() - 4..klines.len() - 1];
@@ -51,7 +54,13 @@ pub async fn process_volatility_spike(
             timestamp: current.start_ts,
         };
         debug!("New event: {}", to_string_pretty(&new_event).unwrap());
-        // TODO: 写到redis
+        // 写到redis
+        if let Err(e) = queue
+            .push("events", new_event.to_json().as_str(), None)
+            .await
+        {
+            error!("failed to push event to redis: {:?}", e);
+        }
     } else {
         // 只输出日志
         debug!(
@@ -64,6 +73,11 @@ pub async fn process_volatility_spike(
 }
 
 // 连续 N 个周期涨/跌
-pub async fn process_consecutive_move(symbol: String, interval: Interval, klines: Vec<Kline>) {
+pub async fn process_consecutive_move(
+    symbol: String,
+    interval: Interval,
+    klines: Vec<Kline>,
+    redis: Arc<RedisQueue>,
+) {
     // TODO:
 }

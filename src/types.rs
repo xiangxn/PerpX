@@ -121,3 +121,9 @@ pub struct Event {
     pub value: Map<String, Value>, // 实际计算出的指标结果
     pub timestamp: u64,
 }
+
+impl Event {
+    pub fn to_json(&self) -> String {
+        serde_json::to_string(self).expect("failed to serialize Event to JSON")
+    }
+}

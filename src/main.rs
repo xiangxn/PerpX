@@ -1,6 +1,7 @@
 use anyhow::Result;
 use fast_websocket_client::proxy::Proxy;
 use fast_websocket_client::{ConnectionInitOptions, WebSocketBuilder};
+use rustis::client::Client;
 use std::sync::Arc;
 use tokio;
 use tokio::sync::mpsc;
@@ -11,10 +12,12 @@ use tracing_subscriber::EnvFilter;
 mod config;
 mod handlers;
 mod helper;
+mod redis;
 mod types;
 mod worker;
 use crate::config::load_config;
 use crate::helper::assign_worker;
+use crate::redis::RedisQueue;
 use crate::types::{MarkPrice, Message, Ticker};
 use crate::worker::worker;
 
@@ -76,13 +79,22 @@ async fn main() -> Result<()> {
     let worker_count = cfg.server.worker_count as usize; // 2核CPU可以设为2~4
     let mut worker_txs = Vec::new();
 
+    // 创建 redis 客户端
+    let url = format!(
+        "redis://{}:{}@{}:{}",
+        cfg.redis.user, cfg.redis.password, cfg.redis.host, cfg.redis.port
+    );
+    let redis_client = Client::connect(url).await?;
+    let redis_queue = Arc::new(RedisQueue::new(redis_client));
+
     // 创建 worker pool
     for i in 0..worker_count {
         let (tx, rx) = mpsc::channel::<Message>(10000);
         worker_txs.push(tx);
+        let redis = redis_queue.clone();
         tokio::spawn(async move {
             info!("🚀 Worker {} started", i);
-            worker(rx, cfg.server.max_kline_count).await;
+            worker(rx, cfg.server.max_kline_count, redis).await;
         });
     }
 

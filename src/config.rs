@@ -2,7 +2,7 @@ use serde::Deserialize;
 
 #[derive(Deserialize, Clone)]
 pub struct Config {
-    pub database: DatabaseConfig,
+    pub redis: RedisConfig,
     pub server: ServerConfig,
     pub proxy: Option<ProxyConfig>,
     #[serde(default)]
@@ -24,7 +24,7 @@ impl Default for Logging {
 }
 
 #[derive(Deserialize, Clone)]
-pub struct DatabaseConfig {
+pub struct RedisConfig {
     pub host: String,
     pub port: u16,
     pub user: String,
