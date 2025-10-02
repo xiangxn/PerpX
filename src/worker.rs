@@ -48,14 +48,22 @@ pub async fn worker(mut rx: mpsc::Receiver<Message>, max_kline_count: u32, queue
                                 interval,
                                 closed_klines,
                                 closed_turnover,
-                                queue_clone
+                                queue_clone,
                             )
                             .await;
                         });
 
                         let queue_clone2 = queue.clone();
+                        let closed_turnover2 = t.turnover.clone();
                         tokio::spawn(async move {
-                            process_consecutive_move(symbol2, interval, closed_klines2,queue_clone2).await;
+                            process_consecutive_move(
+                                symbol2,
+                                interval,
+                                closed_klines2,
+                                closed_turnover2,
+                                queue_clone2,
+                            )
+                            .await;
                         });
                         // 添加新kline
                         klines.push(Kline::new(aligned_ts, price, volume));

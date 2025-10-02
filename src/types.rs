@@ -98,13 +98,6 @@ impl Kline {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Strategy {
-    pub symbol: String,
-    pub interval: Interval,
-    pub pct_change_gt: f64, // e.g. 5.0 means > 5%
-}
-
 // 事件枚举
 #[derive(Clone, Copy, Debug, Hash, Eq, PartialEq, Serialize)]
 pub enum EventType {
