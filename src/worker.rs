@@ -1,11 +1,12 @@
 use crate::{
     handlers::trend_handler::process_consecutive_move,
-    handlers::trend_handler::process_volatility_spike,
+    handlers::trend_handler::{process_funding_rate, process_volatility_spike},
     helper::align_ts,
     types::{Interval, Kline, Message},
 };
-use std::collections::HashMap;
+use std::collections::{hash_map::Entry, HashMap};
 use tokio::sync::mpsc;
+use tracing::error;
 
 use crate::redis::RedisQueue;
 use std::sync::Arc;
@@ -13,6 +14,7 @@ use std::sync::Arc;
 // ========== 核心逻辑 ==========
 pub async fn worker(mut rx: mpsc::Receiver<Message>, max_kline_count: u32, queue: Arc<RedisQueue>) {
     let mut klines: HashMap<String, HashMap<Interval, Vec<Kline>>> = HashMap::new();
+    let mut send_rate: HashMap<String, f64> = HashMap::new();
 
     while let Some(msg) = rx.recv().await {
         match msg {
@@ -75,12 +77,45 @@ pub async fn worker(mut rx: mpsc::Receiver<Message>, max_kline_count: u32, queue
                     }
                 }
             }
-            Message::MarkPrice(m) => {
-                // debug!(
-                //     "MarkPrice: {} {} {}",
-                //     m.symbol, m.funding_rate, m.next_funding_time
-                // );
-            }
+            Message::MarkPrice(m) => match m.funding_rate.parse::<f64>() {
+                Ok(funding_rate) if funding_rate > 0.0001 || funding_rate < -0.0001 => {
+                    let changed = match send_rate.entry(m.symbol.clone()) {
+                        Entry::Vacant(e) => {
+                            e.insert(funding_rate);
+                            true
+                        }
+                        Entry::Occupied(mut e) => {
+                            if (e.get() - funding_rate).abs() > 1e-5 {
+                                *e.get_mut() = funding_rate;
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    };
+                    if changed {
+                        let symbol = m.symbol.clone();
+                        let queue_clone = queue.clone();
+                        let funding_rate = m.funding_rate.clone();
+                        tokio::spawn(async move {
+                            process_funding_rate(
+                                symbol,
+                                m.event_time,
+                                funding_rate,
+                                m.next_funding_time,
+                                queue_clone,
+                            )
+                            .await;
+                        });
+                    }
+                }
+                Ok(_) => {
+                    // debug!("{} Funding rate {}", m.symbol, m.funding_rate);
+                }
+                Err(e) => {
+                    error!("funding_rate parse error: {}", e);
+                }
+            },
         }
     }
 }

@@ -2,7 +2,7 @@ use crate::redis::RedisQueue;
 use crate::types::{Event, EventType, Interval, Kline};
 use serde_json::{json, to_string_pretty};
 use std::sync::Arc;
-use tracing::{debug, error};
+use tracing::{debug, error, info};
 
 // 异常波动
 pub async fn process_volatility_spike(
@@ -58,7 +58,7 @@ pub async fn process_volatility_spike(
             value,
             timestamp: current.start_ts,
         };
-        debug!("New event: {}", to_string_pretty(&new_event).unwrap());
+        info!("New event: {}", to_string_pretty(&new_event).unwrap());
         // 写到redis
         if let Err(e) = queue
             .push("events", new_event.to_json().as_str(), None)
@@ -145,7 +145,7 @@ pub async fn process_consecutive_move(
             value,
             timestamp: klines.last().unwrap().start_ts,
         };
-        debug!("New event: {}", to_string_pretty(&new_event).unwrap());
+        info!("New event: {}", to_string_pretty(&new_event).unwrap());
         // 写到redis
         if let Err(e) = queue
             .push("events", new_event.to_json().as_str(), None)
@@ -162,5 +162,37 @@ pub async fn process_consecutive_move(
             interval.to_string(),
             trend
         );
+    }
+}
+
+pub async fn process_funding_rate(
+    symbol: String,
+    event_time: u64,
+    funding_rate: String,
+    next_funding_time: u64,
+    queue: Arc<RedisQueue>,
+) {
+    debug!("process_funding_rate {:?} {}", symbol, funding_rate);
+    let value = json!({
+        "funding_rate": funding_rate.clone(),
+        "next_funding_time": next_funding_time.clone()
+    })
+    .as_object()
+    .unwrap()
+    .clone();
+    let new_event = Event {
+        event_type: EventType::FundingRate,
+        symbol: symbol.to_string(),
+        period: "".to_string(),
+        value,
+        timestamp: event_time,
+    };
+    info!("New event: {}", to_string_pretty(&new_event).unwrap());
+    // 写到redis
+    if let Err(e) = queue
+        .push("events", new_event.to_json().as_str(), None)
+        .await
+    {
+        error!("failed to push event to redis: {:?}", e);
     }
 }

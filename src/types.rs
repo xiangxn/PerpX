@@ -103,6 +103,7 @@ impl Kline {
 pub enum EventType {
     ConsecutiveMove, // 连续 N 个周期涨/跌
     VolatilitySpike, // 异常波动
+    FundingRate,     // 资金费率
 }
 
 // 事件数据结构
