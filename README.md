@@ -25,7 +25,7 @@ cargo build
 在项目根目录下创建 `config.toml` 文件，内容如下：
 
 ```toml
-[database]
+[redis]
 host = "localhost"
 port = 5432
 user = "postgres"
@@ -33,9 +33,13 @@ password = "password"
 
 [server]
 worker_count = 4
+max_kline_count = 100
 
 [proxy]
 addr = "http://proxy.example.com"
+
+[logging]
+level = "debug"
 ```
 
 ### 运行程序

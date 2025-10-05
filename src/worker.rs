@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 // ========== 核心逻辑 ==========
 pub async fn worker(mut rx: mpsc::Receiver<Message>, max_kline_count: u32, queue: Arc<RedisQueue>) {
-    let mut klines: HashMap<String, HashMap<Interval, Vec<Kline>>> = HashMap::new();
+    let mut all_symbols: HashMap<String, HashMap<Interval, Vec<Kline>>> = HashMap::new();
     let mut send_rate: HashMap<String, f64> = HashMap::new();
 
     while let Some(msg) = rx.recv().await {
@@ -23,7 +23,7 @@ pub async fn worker(mut rx: mpsc::Receiver<Message>, max_kline_count: u32, queue
                 let volume: f64 = t.volume.parse().unwrap_or(0.0);
                 let ts = t.event_time;
 
-                let entry = klines.entry(t.symbol.clone()).or_insert_with(HashMap::new);
+                let entry = all_symbols.entry(t.symbol.clone()).or_insert_with(HashMap::new);
 
                 for &interval in &[
                     Interval::Min5,
