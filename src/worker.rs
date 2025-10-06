@@ -78,7 +78,7 @@ pub async fn worker(mut rx: mpsc::Receiver<Message>, max_kline_count: u32, queue
                 }
             }
             Message::MarkPrice(m) => match m.funding_rate.parse::<f64>() {
-                Ok(funding_rate) if funding_rate > 0.0001 || funding_rate < -0.0001 => {
+                Ok(funding_rate) if funding_rate.abs() > 0.0001 => {
                     let changed = match send_rate.entry(m.symbol.clone()) {
                         Entry::Vacant(e) => {
                             e.insert(funding_rate);
