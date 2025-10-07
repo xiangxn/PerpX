@@ -4,11 +4,12 @@ use uuid::Uuid;
 
 pub struct RedisQueue {
     client: Client,
+    ttl: usize,
 }
 
 impl RedisQueue {
-    pub fn new(client: Client) -> Self {
-        Self { client }
+    pub fn new(client: Client, ttl: usize) -> Self {
+        Self { client, ttl }
     }
 
     /// 推送消息到队列
@@ -24,7 +25,7 @@ impl RedisQueue {
         let key = format!("perpx:msg:{}", Uuid::new_v4());
 
         // 默认 TTL 60 秒
-        let ttl = ttl_secs.unwrap_or(60) as u64;
+        let ttl = ttl_secs.unwrap_or(self.ttl) as u64;
         // 存消息 + TTL
         self.client.setex(&key, ttl, message).await?;
 

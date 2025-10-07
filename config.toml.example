@@ -5,12 +5,17 @@ user = "root"
 password = "secret"
 
 [server]
-worker_count = 4
-max_kline_count = 100
+worker_count = 4    # 工作线程数，默认4个
+max_kline_count = 100   # 最多保留100条k线
+redis_data_expire = 120 # 120秒后redis数据过期，默认120秒
+
+[funding_rate]
+min_funding_rate = 0.0001   # 监控的最小费率绝对值，默认0.0001
+min_funding_rate_change = 0.00005 # 费率变化绝对值超过0.005%, 同时要满足funding_rate_interval才更新
+funding_rate_interval = 600 # 费率更新最小间隔600秒
 
 [proxy]
-# 可选，留空或不写表示直连
-addr = "127.0.0.1:1080"
+addr = "127.0.0.1:1080" # 可选，留空或不写表示直连
 
 [logging]
 level = "debug"

@@ -7,6 +7,7 @@ pub struct Config {
     pub proxy: Option<ProxyConfig>,
     #[serde(default)]
     pub logging: Logging,
+    pub funding_rate: FundingRateConfig,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -35,6 +36,14 @@ pub struct RedisConfig {
 pub struct ServerConfig {
     pub worker_count: u16,
     pub max_kline_count: u32,
+    pub redis_data_expire: usize,
+}
+
+#[derive(Deserialize, Clone)]
+pub struct FundingRateConfig {
+    pub min_funding_rate: f64,        // 最小资金费率 0.0001(0.01%)
+    pub min_funding_rate_change: f64, // 资金费率变化的最小幅度 0.0001(0.01%)
+    pub funding_rate_interval: u64,   // 资金费率事件的最小间隔，单位秒
 }
 
 #[derive(Deserialize, Clone)]

@@ -1,8 +1,7 @@
 use crate::{
-    handlers::trend_handler::process_consecutive_move,
-    handlers::trend_handler::{process_funding_rate, process_volatility_spike},
-    helper::align_ts,
-    types::{Interval, Kline, Message},
+    config::FundingRateConfig, handlers::trend_handler::{
+        process_consecutive_move, process_funding_rate, process_volatility_spike,
+    }, helper::align_ts, types::{FundingRateLimit, Interval, Kline, Message}
 };
 use std::collections::{hash_map::Entry, HashMap};
 use tokio::sync::mpsc;
@@ -12,9 +11,14 @@ use crate::redis::RedisQueue;
 use std::sync::Arc;
 
 // ========== 核心逻辑 ==========
-pub async fn worker(mut rx: mpsc::Receiver<Message>, max_kline_count: u32, queue: Arc<RedisQueue>) {
+pub async fn worker(
+    mut rx: mpsc::Receiver<Message>,
+    max_kline_count: u32,
+    funding_rate_config: FundingRateConfig,
+    queue: Arc<RedisQueue>,
+) {
     let mut all_symbols: HashMap<String, HashMap<Interval, Vec<Kline>>> = HashMap::new();
-    let mut send_rate: HashMap<String, f64> = HashMap::new();
+    let mut send_rate: HashMap<String, FundingRateLimit> = HashMap::new();
 
     while let Some(msg) = rx.recv().await {
         match msg {
@@ -23,7 +27,9 @@ pub async fn worker(mut rx: mpsc::Receiver<Message>, max_kline_count: u32, queue
                 let volume: f64 = t.volume.parse().unwrap_or(0.0);
                 let ts = t.event_time;
 
-                let entry = all_symbols.entry(t.symbol.clone()).or_insert_with(HashMap::new);
+                let entry = all_symbols
+                    .entry(t.symbol.clone())
+                    .or_insert_with(HashMap::new);
 
                 for &interval in &[
                     Interval::Min5,
@@ -78,15 +84,22 @@ pub async fn worker(mut rx: mpsc::Receiver<Message>, max_kline_count: u32, queue
                 }
             }
             Message::MarkPrice(m) => match m.funding_rate.parse::<f64>() {
-                Ok(funding_rate) if funding_rate.abs() > 0.0001 => {
+                Ok(funding_rate) if funding_rate.abs() > funding_rate_config.min_funding_rate => {
                     let changed = match send_rate.entry(m.symbol.clone()) {
                         Entry::Vacant(e) => {
-                            e.insert(funding_rate);
+                            e.insert(FundingRateLimit {
+                                time: m.event_time,
+                                rate: funding_rate,
+                            });
                             true
                         }
                         Entry::Occupied(mut e) => {
-                            if (e.get() - funding_rate).abs() > 1e-5 {
-                                *e.get_mut() = funding_rate;
+                            // 变化的值必须大于1e-5，并且时间间隔>=funding_rate_interval，否则不更新
+                            if (e.get().rate - funding_rate).abs() > funding_rate_config.min_funding_rate_change
+                                && m.event_time - e.get().time > funding_rate_config.funding_rate_interval * 1000
+                            {
+                                e.get_mut().rate = funding_rate;
+                                e.get_mut().time = m.event_time;
                                 true
                             } else {
                                 false

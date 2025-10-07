@@ -85,16 +85,17 @@ async fn main() -> Result<()> {
         cfg.redis.user, cfg.redis.password, cfg.redis.host, cfg.redis.port
     );
     let redis_client = Client::connect(url).await?;
-    let redis_queue = Arc::new(RedisQueue::new(redis_client));
+    let redis_queue = Arc::new(RedisQueue::new(redis_client, cfg.server.redis_data_expire));
 
     // 创建 worker pool
     for i in 0..worker_count {
         let (tx, rx) = mpsc::channel::<Message>(10000);
         worker_txs.push(tx);
         let redis = redis_queue.clone();
+        let funding_rate_config = cfg.funding_rate.clone();
         tokio::spawn(async move {
             info!("🚀 Worker {} started", i);
-            worker(rx, cfg.server.max_kline_count, redis).await;
+            worker(rx, cfg.server.max_kline_count, funding_rate_config, redis).await;
         });
     }
 

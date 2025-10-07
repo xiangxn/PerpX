@@ -121,3 +121,10 @@ impl Event {
         serde_json::to_string(self).expect("failed to serialize Event to JSON")
     }
 }
+
+// 资金费率事件限制
+#[derive(Debug, Clone)]
+pub struct FundingRateLimit {
+    pub rate: f64,  // 当前的资金费率
+    pub time: u64,  // 上次事件发生的时间
+}
